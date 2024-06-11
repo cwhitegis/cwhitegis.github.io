@@ -1,0 +1,29 @@
+*{
+	margin: auto;
+	padding: 100px;
+}
+h1{
+	color: red;
+}
+.wrapper{
+	margin: 0 auto;
+	width: 1920;
+}
+.navbar{
+	background-color: black;
+	height: 100px;
+}
+.pokai-bay{
+	width: 1920px;
+	height: 1080px;
+	background-image: url(img/DJI_0217.JPG);
+	background-size: 100%;
+	background-repeat: no-repeat;
+}
+.video{
+	max-width: 100px;
+	padding: 100px;
+	width: 1920px;
+	height: 1080px;
+	background-color: blue;
+}
