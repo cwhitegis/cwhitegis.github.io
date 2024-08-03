@@ -1,29 +1,156 @@
 *{
-	margin: auto;
-	padding: 100px;
+    margin: 0px; padding: 0px;
+    box-sizing: border-box;
 }
-h1{
-	color: red;
+.header{
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%;
+    padding: 20px 100px;
+    background: green;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 100;
 }
-.wrapper{
-	margin: 0 auto;
-	width: 1920;
+.logo{
+    font-size: 26px;
+    color: white;
+    text-decoration: none;
+    font-weight: 7;
 }
-.navbar{
-	background-color: black;
-	height: 100px;
+.navbar a{
+    font-size: 18px;
+    color: white;
+    font-weight: 500;
+    text-decoration: none;
+    margin-left: 40px;
 }
-.pokai-bay{
-	width: 1920px;
-	height: 1080px;
-	background-image: url(img/DJI_0217.JPG);
-	background-size: 100%;
-	background-repeat: no-repeat;
+.container{
+    position: relative;
+    top: 60px; left 0px;
+    min-height: 100vh;
+    background: #ddd;
 }
-.video{
-	max-width: 100px;
-	padding: 100px;
-	width: 1920px;
-	height: 1080px;
-	background-color: blue;
+.container h2{
+    font-size: 40px;
+    font-family: Verdana, Geneva, Tahoma, sans-serif;
+    font-weight: normal;
+    padding: 15px;
+    color: black;
+    text-align: center;
+    text-transform: capitalize;
+}
+.container .image-container{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    justify-content: center;
+    padding: 10px;
+}
+.container .image-container .image{
+    height: 250px;
+    width: 350px;
+    border: 2px solid white;
+    box-shadow: 0 5px 15px black;
+    overflow: hidden;
+    cursor: pointer;
+}
+.container .image-container .image img{
+    height: 100%;
+    width: 100%;
+    object-fit: cover;
+    transition: .2s linear;
+}
+.container .image-container .image:hover img{
+    transform: scale(1.1);
+}
+.container .popup-image{
+    position: fixed;
+    top: 60px; left: 0;
+    background: rgb(167, 162, 162,.8);
+    height: 100%;
+    width: 100%;
+    z-index: 105;
+    display: none;
+}
+.container .popup-image span{
+    position: absolute;
+    top: 0; right: 0px;
+    font-size: 40px;
+    font-weight: bolder;
+    color: white;
+    cursor: pointer;
+    z-index: 115;
+}
+.container .popup-image img{
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    border: 2px solid white;
+    border-radius: 5px;
+    width: 1200px;
+    object-fit: cover;
+}
+@media (max-width:768px){
+    .container .popup-image img{
+        width: 90%;
+    }
+}
+.container .video-container{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    justify-content: center;
+    padding: 10px;
+}
+.container .video-container .video{
+    height: 250px;
+    width: 350px;
+    border: 2px solid white;
+    border-radius: 0px;
+    box-shadow: 0 5px 15px black;
+    cursor: pointer;
+    overflow: hidden;
+}
+.container .video-container .video video{
+    height: 100%;
+    width: 100%;
+    object-fit: cover;
+    transition: .2s linear;
+}
+.container .video-container .video:hover video{
+    transform: scale(1.1);
+}
+.container .popup-video{
+    position: fixed;
+    top: 0; left: 0;
+    z-index: 100;
+    background: rgb(167, 162, 162,.8);
+    height: 100%;
+    width: 100%;
+    display: none;
+}
+.container .popup-video video{
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    border: 0px solid white;
+    border-radius: 0px;
+    width: 1080px;
+    object-fit: cover;
+}
+.container .popup-video span{
+    position: absolute;
+    top: 5; right: 20px;
+    font-size: 50px;
+    font-weight: bolder;
+    color: white;
+    cursor: pointer;
+    z-index: 100;
+}
+@media (max-width:768px){
+    .container .popup-video video{
+        width: 95%;
+    }
 }

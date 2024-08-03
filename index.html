@@ -1,39 +1,72 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Calvin White GIS</title>
-  <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calvin White GIS</title>
+
+    <link rel="stylesheet" href="style.css">
+
 </head>
 <body>
-  <nav class="navbar">
-    <div class="navbar__container">
-      <a href="img/DJI_0217.JPG">LOGO</a>
+    <div class="header">
+        <a href="#" class="logo">Calvin White</a>
+        <nav class="navbar">
+            <a href="#">Drone Imagery</a>
+            <a href="#">Drone Video</a>
+        </nav>
     </div>
-  </nav>
-  <div class="wrapper">
-    <div class="pokai-bay"></div>
+<div class="container">
+    <h2>Drone Imagery</h2>
+    <div class="image-container">
+        <div class="image"><img src="images/img1.jpg" alt=""></div>
+        <div class="image"><img src="images/img2.jpg" alt=""></div>
+        <div class="image"><img src="images/img3.jpg" alt=""></div>
+    </div>
+    <div class="image-container">
+      <div class="image"><img src="images/img4.jpg" alt=""></div>
+      <div class="image"><img src="images/img5.jpg" alt=""></div>
+      <div class="image"><img src="images/img6.jpg" alt=""></div>
   </div>
-  <div class="wrapper">
-  <div class="video">
-    <video src="vid/DJI_0219.mp4" width="1920" controls></video>
-  </div>
-  </div>
+    <div class="popup-image">
+        <span>&times;</span>
+        <img src="images/OahuLandValue.jpg" alt="">
+    </div>
+    <h2>Drone Video</h2>
+    <div class="video-container">
+        <div class="video"><video src="videos/vid3.MP4" muted></video></div>
+<!--         <div class="video"><video src="videos/vid2.MP4" muted></video></div>
+        <div class="video"><video src="videos/vid3.mp4" muted></video></div> -->
+    </div>
+    <div class="popup-video">
+        <span>&times;</span>
+        <video src="videos/blaisdale.MP4" muted autoplay controls></video>
+    </div>
+</div>
+
+<script>
+
+    document.querySelectorAll('.image-container img').forEach(Image =>{
+        Image.onclick = () =>{
+            document.querySelector('.popup-image').style.display = 'block';
+            document.querySelector('.popup-image img').src = Image.getAttribute('src');
+        }
+    });
+
+    document.querySelector('.popup-image span').onclick = () =>{
+        document.querySelector('.popup-image').style.display = 'none';
+    }
+
+    document.querySelectorAll('.video-container video').forEach(vid =>{
+        vid.onclick = () =>{
+            document.querySelector('.popup-video').style.display = 'block';
+            document.querySelector('.popup-video video').src = vid.getAttribute('src');
+        }
+    });
+
+    document.querySelector('.popup-video span').onclick = () =>{
+        document.querySelector('.popup-video').style.display = 'none';
+    }
+</script>
 </body>
 </html>
-<!-- <!doctype html>
-<html>
-  <head>
-    <title>This is the title of the webpage!</title>
-	<link rel="stylesheet" href="style.css">
-  </head>
-  <body>
-    <p>This is an example paragraph. Anything in the <strong>body</strong> tag will appear on the page, just like this <strong>p</strong> tag and its contents.</p>
-	<div class="wrapper">
-	<img class="pokai-bay" src ="img\DJI_0217.JPG" alt='Pokai Bay'>
-	<div class="pokai-bay"></div>
-	<video src="vid/DJI_0219.mp4" width="1920" controls>
-	</div>	
-  </body>
-</html> -->
