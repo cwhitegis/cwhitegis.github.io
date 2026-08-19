@@ -1,20 +1,711 @@
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no" />
-    <title>Honolulu Tax</title>
 
-    <!-- Load the ArcGIS Maps SDK for JavaScript from CDN -->
-    <link rel="stylesheet" href="https://js.arcgis.com/4.32/esri/themes/light/main.css">
-    <script src="https://js.arcgis.com/4.32/"></script>
-    <link rel="stylesheet" href="style.css" />
-    <script src="main.js"></script>
-  </head>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Roof Inspection Report Exporter</title>
+  <link rel="stylesheet" href="https://js.arcgis.com/4.28/esri/themes/light/main.css" />
 
-  <body>
+  <!-- jsPDF UMD, then your UMD font plugin (no ESM) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://gishost.cdmsmithgis.com/HDPR/fonts/NotoSans-Regular-normal.js?v=4"></script>
 
-    <div id = 'viewDiv'></div>
+  <!-- Optional: EXIF helper for image orientation -->
+  <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
 
-  </body>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+    .container {
+      background-color: #fff;
+      border-radius: 16px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+      padding: 40px;
+      width: 90%;
+      max-width: 650px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .container::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #007bff, #0056b3, #007bff);
+      background-size: 200% 100%;
+      animation: shimmer 2s ease-in-out infinite;
+    }
+    @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+    .header-icon { font-size: 48px; margin-bottom: 20px; color: #007bff; }
+    h2 { color: #2c3e50; margin-bottom: 10px; font-size: 28px; font-weight: 600; }
+    .subtitle { color: #7f8c8d; font-size: 14px; margin-bottom: 30px; text-transform: uppercase; letter-spacing: 1px; }
+    p { color: #5a6c7d; margin-bottom: 35px; font-size: 16px; line-height: 1.6; }
+    .spinner {
+      border: 3px solid rgba(0,0,0,0.1);
+      border-left-color: #007bff;
+      border-radius: 50%;
+      width: 20px; height: 20px;
+      animation: spin 1s linear infinite;
+      margin-left: 10px; display: none; vertical-align: middle;
+    }
+    @keyframes spin { 0% {transform: rotate(0deg);} 100% {transform: rotate(360deg);} }
+    .status-message, .error-message {
+      margin-top: 25px; padding: 12px 20px; border-radius: 8px; font-weight: 500; display: none;
+    }
+    .status-message { background:#d4edda; color:#155724; border:1px solid #c3e6cb; }
+    .error-message { background:#f8d7da; color:#721c24; border:1px solid #f5c6cb; }
+    .status-message.show, .error-message.show { display:block; animation: slideIn 0.3s ease-out; }
+    @keyframes slideIn { from {opacity:0; transform: translateY(10px);} to {opacity:1;} }
+    .info-card { background:#f8f9fa; border-radius:12px; padding:20px; margin:20px 0; border-left:4px solid #007bff; }
+    .info-card h4 { margin:0 0 10px 0; color:#2c3e50; font-size:16px; }
+    .info-card p { margin:0; font-size:14px; color:#6c757d; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header-icon">🏠</div>
+    <h2>Export Roof Inspection Report</h2>
+    <div class="subtitle">Department of Parks & Recreation</div>
+    <p>
+      This page will automatically generate a comprehensive PDF report for the selected building, including attachments.<br />
+      <small>To use, open with <b>?objectid=123</b> in the URL.</small>
+    </p>
+    <div class="info-card">
+      <h4>📋 Report Contents</h4>
+      <p>Building information, inspection details, roof assessment, repair requirements, gutters & downspouts analysis, assessment summary, and attachments.</p>
+    </div>
+    <div id="status" class="status-message"></div>
+    <div id="error" class="error-message"></div>
+    <div id="loadingSpinner" class="spinner"></div>
+  </div>
 
+  <script src="https://js.arcgis.com/4.28/"></script>
+
+  <script>
+    // ArcGIS + export logic
+    require([
+      "esri/identity/IdentityManager",
+      "esri/rest/query",
+      "esri/rest/support/Query"
+    ], function (esriId, query, Query) {
+      const statusDiv = document.getElementById("status");
+      const errorDiv = document.getElementById("error");
+      const loadingSpinner = document.getElementById("loadingSpinner");
+
+      const portalUrl = "https://www.arcgis.com";
+      const appId = "85Mk731RpOkQzUr4";
+      const layerUrl =
+        "https://services.arcgis.com/tNJpAOha4mODLkXz/arcgis/rest/services/service_40d41/FeatureServer/0";
+      const defectsTableUrl =
+        "https://services.arcgis.com/tNJpAOha4mODLkXz/arcgis/rest/services/service_40d41/FeatureServer/1";
+
+      function getObjectIdFromUrl() {
+        const url = new URL(window.location.href);
+        return url.searchParams.get("objectid");
+      }
+      function showStatus(message) {
+        statusDiv.textContent = message;
+        statusDiv.className = "status-message show";
+        errorDiv.className = "error-message";
+        errorDiv.textContent = "";
+      }
+      function showError(message) {
+        errorDiv.textContent = message;
+        errorDiv.className = "error-message show";
+        statusDiv.className = "status-message";
+        statusDiv.textContent = "";
+      }
+      function setLoading(isLoading) {
+        if (loadingSpinner) loadingSpinner.style.display = isLoading ? "inline-block" : "none";
+      }
+      function prettify(value) {
+        if (!value) return "";
+        return value.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+      }
+      function fallbackNone(value) { return !value && value !== 0 ? "None" : value; }
+
+      // Normalize strings for consistent rendering
+      function cleanText(input) {
+        const s = (input ?? "").toString();
+        return s.normalize("NFC").replace(/\u00A0/g, " ").replace(/[\u200B-\u200D\uFEFF]/g, "");
+      }
+
+      function formatEpochDate(epoch) {
+        if (!epoch) return "N/A";
+        const date = new Date(epoch > 1e12 ? epoch : epoch * 1000);
+        return date.toLocaleDateString();
+      }
+
+      async function loadImageWithOrientation(url) {
+        return new Promise((resolve, reject) => {
+          fetch(url)
+            .then((res) => res.blob())
+            .then((blob) => {
+              const img = new Image();
+              const reader = new FileReader();
+              reader.onload = (e) => { img.src = e.target.result; };
+              reader.readAsDataURL(blob);
+
+              img.onload = function () {
+                EXIF.getData(img, function () {
+                  const orientation = EXIF.getTag(this, "Orientation") || 1;
+                  const canvas = document.createElement("canvas");
+                  const ctx = canvas.getContext("2d");
+                  const width = img.width;
+                  const height = img.height;
+
+                  if (orientation > 4) { canvas.width = height; canvas.height = width; }
+                  else { canvas.width = width; canvas.height = height; }
+
+                  switch (orientation) {
+                    case 2: ctx.translate(width, 0); ctx.scale(-1, 1); break;
+                    case 3: ctx.translate(width, height); ctx.rotate(Math.PI); break;
+                    case 4: ctx.translate(0, height); ctx.scale(1, -1); break;
+                    case 5: ctx.rotate(0.5 * Math.PI); ctx.scale(1, -1); break;
+                    case 6: ctx.translate(height, 0); ctx.rotate(0.5 * Math.PI); break;
+                    case 7: ctx.translate(height, 0); ctx.rotate(0.5 * Math.PI); ctx.scale(-1, 1); break;
+                    case 8: ctx.translate(0, width); ctx.rotate(-0.5 * Math.PI); break;
+                  }
+
+                  ctx.drawImage(img, 0, 0);
+                  resolve(canvas.toDataURL());
+                });
+              };
+              img.onerror = reject;
+            })
+            .catch(reject);
+        });
+      }
+
+      async function fetchFeatureByObjectId(objectId) {
+        const queryObj = new Query({ where: `ObjectID = ${objectId}`, outFields: ["*"], returnGeometry: false });
+        const result = await query.executeQueryJSON(layerUrl, queryObj);
+        if (!result.features || result.features.length === 0) {
+          throw new Error(`No feature found with ObjectID = ${objectId}.`);
+        }
+        return result.features[0];
+      }
+
+      async function fetchAttachments(objectId, token, url) {
+        const attUrl = `${url}/${objectId}/attachments?f=json&token=${token}`;
+        const res = await fetch(attUrl);
+        if (!res.ok) throw new Error("Failed to fetch attachments.");
+        const data = await res.json();
+        return data.attachmentInfos || [];
+      }
+
+      async function fetchDefectAttachments(objectId, token, url) {
+        const attUrl = `${url}/${objectId}/attachments?f=json&token=${token}`;
+        const res = await fetch(attUrl);
+        if (!res.ok) throw new Error("Failed to fetch defect attachments.");
+        const data = await res.json();
+        return data.attachmentInfos || [];
+      }
+
+      async function fetchDefectsForBuilding(globalId) {
+        const whereClause = `parentglobalid = '${globalId}'`;
+        const queryObj = new Query({ where: whereClause, outFields: ["*"], returnGeometry: false });
+        const result = await query.executeQueryJSON(defectsTableUrl, queryObj);
+        return result.features || [];
+      }
+
+      async function createPDF(feature, attachments, token, objectId, defects, defectAttachmentsMap) {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+
+        // Ensure the embedded font is used on all pages
+        doc.setFont("NotoSans-Regular", "normal"); // adjust if FontList shows a different key
+        if (doc.setCharSpace) doc.setCharSpace(0);
+
+        const origAddPage = doc.addPage.bind(doc);
+        doc.addPage = function(...args) {
+          const result = origAddPage(...args);
+          doc.setFont("NotoSans-Regular", "normal");
+          if (doc.setCharSpace) doc.setCharSpace(0);
+          return result;
+        };
+
+        const attributes = feature.attributes;
+        const pageHeight = 297, marginBottom = 20, pageWidth = 210;
+
+        function ensurePageFont(docInstance) {
+          docInstance.setFont("NotoSans-Regular", "normal");
+          if (docInstance.setCharSpace) docInstance.setCharSpace(0);
+        }
+
+        function checkPageBreak(doc, y, needed = 30) {
+          if (y + needed > pageHeight - marginBottom) {
+            doc.addPage();
+            ensurePageFont(doc);
+            return 20;
+          }
+          return y;
+        }
+
+        function drawSectionHeader(doc, text, y) {
+          y = checkPageBreak(doc, y, 16);
+          y += 8;
+          doc.setFontSize(13);
+          doc.setFont("NotoSans-Regular", "normal");
+          doc.setTextColor(30, 58, 138);
+          doc.text(cleanText(text).toUpperCase(), 20, y);
+          return y + 8;
+        }
+
+        function drawInfoBox(doc, label, value, x, y, boxWidth = 80, minBoxHeight = 8) {
+          doc.setFontSize(8.5);
+          doc.setFont("NotoSans-Regular", "normal");
+          doc.setTextColor(75, 85, 99);
+          doc.text(cleanText(label).toUpperCase(), x, y + 3);
+
+          doc.setFont("NotoSans-Regular", "normal");
+          doc.setFontSize(9.5);
+          doc.setTextColor(17, 24, 39);
+          const lines = doc.splitTextToSize(cleanText(value) || "N/A", boxWidth - 4);
+          const boxHeight = Math.max(minBoxHeight, lines.length * 5.2 + 4);
+
+          y = checkPageBreak(doc, y, boxHeight + 12);
+
+          doc.setFillColor(243, 244, 246);
+          doc.setDrawColor(229, 231, 235);
+          doc.roundedRect(x, y + 5, boxWidth, boxHeight, 1, 1, "FD");
+          doc.text(lines, x + 2, y + 10);
+          return y + 5 + boxHeight + 4;
+        }
+
+        function drawTwoColumnRow(doc, label1, value1, label2, value2, y) {
+          const leftX = 20, rightX = 110, boxWidth = 80;
+          const lines1 = doc.splitTextToSize(cleanText(value1) || "N/A", boxWidth - 4);
+          const boxHeight1 = Math.max(8, lines1.length * 5.2 + 4);
+          const lines2 = doc.splitTextToSize(cleanText(value2) || "N/A", boxWidth - 4);
+          const boxHeight2 = Math.max(8, lines2.length * 5.2 + 4);
+          const needed = Math.max(boxHeight1, boxHeight2) + 12;
+          y = checkPageBreak(doc, y, needed);
+
+          const y1 = drawInfoBox(doc, label1, value1, leftX, y, boxWidth);
+          const y2 = drawInfoBox(doc, label2, value2, rightX, y, boxWidth);
+          return Math.max(y1, y2);
+        }
+
+        function drawSingleColumnRow(doc, label, value, y) {
+          const boxWidth = 170;
+          const lines = doc.splitTextToSize(cleanText(value) || "N/A", boxWidth - 4);
+          const boxHeight = Math.max(8, lines.length * 5.2 + 4);
+          y = checkPageBreak(doc, y, boxHeight + 12);
+          return drawInfoBox(doc, label, value, 20, y, boxWidth);
+        }
+
+        function drawCriticalBox(doc, feature, y) {
+          const critDef = feature.Critical_Defect;
+          if (critDef === "No" || !critDef) return y;
+
+          const fullWidthFields = [
+            { label: "Critical Roof Issues", value: fallbackNone(feature.Roof_Condition_Critical) },
+            { label: "Critical Defects", value: fallbackNone(feature.Critical_Defect) },
+            { label: "Defect Comments", value: fallbackNone(feature.Defect_Comment) },
+          ];
+
+          const leftColumnFields = [
+            { label: "Critical Gutter Issues", value: fallbackNone(feature.Gutter_Critical_Issue) },
+            { label: "Gutter Critical Comments", value: fallbackNone(feature.Gutter_Critical_Comment) },
+          ];
+
+          const rightColumnFields = [
+            { label: "Critical Downspout Issues", value: fallbackNone(feature.Downspout_Critical_Issue) },
+            { label: "Downspout Critical Comments", value: fallbackNone(feature.Downspout_Critical_Comment) },
+          ];
+
+          const paddingBetweenFields = 5;
+          const paddingInsideBox = 4;
+          const labelHeight = 5;
+          const headerHeight = 14;
+          const boxPaddingTop = 8;
+          const boxPaddingBottom = 8;
+          const redBoxWidth = 174;
+          const redBoxX = 18;
+
+          const columnGap = 8;
+          const columnWidth = 80;
+          const columnXLeft = 22;
+          const columnXRight = columnXLeft + columnWidth + columnGap;
+
+          const fullWidth = columnWidth * 2 + columnGap;
+          const fullWidthX = columnXLeft;
+
+          function calcFieldsHeight(fields, width) {
+            let height = 0;
+            doc.setFont("NotoSans-Regular", "normal");
+            doc.setFontSize(10);
+            for (const field of fields) {
+              const valueLines = doc.splitTextToSize(cleanText(field.value), width - 8);
+              const valueHeight = valueLines.length * 4.5;
+              const fieldHeight = labelHeight + valueHeight + paddingInsideBox;
+              height += fieldHeight + paddingBetweenFields;
+            }
+            return height;
+          }
+
+          const fullWidthHeight = calcFieldsHeight(fullWidthFields, fullWidth);
+          const leftColHeight = calcFieldsHeight(leftColumnFields, columnWidth);
+          const rightColHeight = calcFieldsHeight(rightColumnFields, columnWidth);
+          const twoColHeight = Math.max(leftColHeight, rightColHeight);
+
+          const totalBoxHeight = boxPaddingTop + headerHeight + fullWidthHeight + twoColHeight + boxPaddingBottom + paddingBetweenFields;
+
+          y = checkPageBreak(doc, y, totalBoxHeight);
+
+          // Outer red box
+          doc.setFillColor(254, 242, 242);
+          doc.setDrawColor(239, 68, 68);
+          doc.roundedRect(redBoxX, y, redBoxWidth, totalBoxHeight, 2, 2, "FD");
+
+          // Header text
+          doc.setFont("NotoSans-Regular", "normal");
+          doc.setFontSize(13);
+          doc.setTextColor(220, 38, 38);
+          doc.text(cleanText("Critical Issues Identified"), redBoxX + 4, y + boxPaddingTop + 8);
+
+          // Full width fields
+          let currentY = y + boxPaddingTop + headerHeight;
+          for (const field of fullWidthFields) {
+            const valueLines = doc.splitTextToSize(cleanText(field.value), fullWidth - 8);
+            const valueHeight = valueLines.length * 4.5;
+            const fieldHeight = labelHeight + valueHeight + paddingInsideBox;
+
+            doc.setFont("NotoSans-Regular", "normal");
+            doc.setFontSize(9.5);
+            doc.setTextColor(75, 85, 99);
+            doc.text(cleanText(field.label), fullWidthX, currentY + labelHeight);
+
+            const boxX = fullWidthX;
+            const boxYVal = currentY + labelHeight + 2;
+            const boxWidth = fullWidth;
+            const boxHeight = valueHeight + paddingInsideBox;
+            doc.setFillColor(243, 244, 246);
+            doc.setDrawColor(229, 231, 235);
+            doc.roundedRect(boxX, boxYVal, boxWidth, boxHeight, 1, 1, "FD");
+
+            const textY = boxYVal + boxHeight / 2 - (valueLines.length * 4.5) / 2 + 4;
+
+            doc.setFont("NotoSans-Regular", "normal");
+            doc.setFontSize(10);
+            doc.setTextColor(17, 24, 39);
+            doc.text(valueLines, boxX + 4, textY);
+
+            currentY += fieldHeight + paddingBetweenFields;
+          }
+
+          // Two columns
+          function drawColumn(fields, startX, startY, width) {
+            let colY = startY;
+            for (const field of fields) {
+              const valueLines = doc.splitTextToSize(cleanText(field.value), width - 8);
+              const valueHeight = valueLines.length * 4.5;
+              const fieldHeight = labelHeight + valueHeight + paddingInsideBox;
+
+              doc.setFont("NotoSans-Regular", "normal");
+              doc.setFontSize(9.5);
+              doc.setTextColor(75, 85, 99);
+              doc.text(cleanText(field.label), startX, colY + labelHeight);
+
+              const boxX = startX;
+              const boxYVal = colY + labelHeight + 2;
+              const boxWidth = width;
+              const boxHeight = valueHeight + paddingInsideBox;
+              doc.setFillColor(243, 244, 246);
+              doc.setDrawColor(229, 231, 235);
+              doc.roundedRect(boxX, boxYVal, boxWidth, boxHeight, 1, 1, "FD");
+
+              const textY = boxYVal + boxHeight / 2 - (valueLines.length * 4.5) / 2 + 4;
+
+              doc.setFont("NotoSans-Regular", "normal");
+              doc.setFontSize(10);
+              doc.setTextColor(17, 24, 39);
+              doc.text(valueLines, boxX + 4, textY);
+
+              colY += fieldHeight + paddingBetweenFields;
+            }
+          }
+
+          drawColumn(leftColumnFields, 22, currentY, 80);
+          drawColumn(rightColumnFields, 22 + 80 + 8, currentY, 80);
+
+          return y + totalBoxHeight + 4;
+        }
+
+        // Header
+        doc.setFontSize(18);
+        doc.setFont("NotoSans-Regular", "normal");
+        doc.setTextColor(30, 58, 138);
+        doc.text(cleanText("Roof Inspection Report"), 20, 18);
+        doc.setFontSize(10);
+        doc.setFont("NotoSans-Regular", "normal");
+        doc.setTextColor(75, 85, 99);
+        doc.text(cleanText("Department of Parks & Recreation"), 20, 25);
+        doc.setFontSize(9);
+        doc.setTextColor(100, 116, 139);
+        doc.text(cleanText(`Generated: ${new Date().toLocaleDateString()}`), 140, 25);
+
+        let y = 35;
+
+        // Building Information
+        y = drawSectionHeader(doc, "Building Information", y);
+        y = drawTwoColumnRow(doc, "Park Name", attributes.Park_Name, "Building Name", attributes.Building_Name, y);
+        y = drawTwoColumnRow(doc, "Building Address", attributes.Building_Address, "Building Type", prettify(attributes.Material), y);
+        y = drawTwoColumnRow(doc, "District", attributes.District, "Council District", attributes.Council_District, y);
+
+        // Inspection Details
+        y = drawSectionHeader(doc, "Inspection Details", y);
+        y = drawTwoColumnRow(doc, "Inspector", attributes.Inspector, "Inspection Date", formatEpochDate(attributes.Inspection_Date), y);
+        y = drawTwoColumnRow(doc, "Inspection Status", attributes.Inspection_Status, "Building Stories", attributes.Stories, y);
+
+        // Roof Assessment
+        y = drawSectionHeader(doc, "Roof Assessment", y);
+        y = drawTwoColumnRow(doc, "Roof Age (Years)", attributes.Age, "Roof Area (sq ft)", attributes.Roof_Area, y);
+        y = drawTwoColumnRow(doc, "Roof Slope", attributes.Slope, "Roof Material", prettify(attributes.Material), y);
+        y = drawSingleColumnRow(doc, "Roof Condition Rating", attributes.Condition_Rating, y);
+        y = drawSingleColumnRow(doc, "Roof Condition Comments", attributes.Condition_Comment, y);
+
+        // Critical Issues
+        y = drawCriticalBox(doc, attributes, y);
+
+        // Repair Requirements
+        y = drawSectionHeader(doc, "Repair Requirements", y);
+        y = drawTwoColumnRow(doc, "Repairs Required", attributes.Repair_Required, "Repair Area (sq ft)", attributes.Roof_Area_Repair, y);
+        y = drawTwoColumnRow(doc, "Partial Replacement", attributes.Partial_Replacement_Required, "Full Replacement", attributes.Full_Replacement_Required, y);
+        y = drawSingleColumnRow(doc, "Repair Description", attributes.Repair_Description, y);
+
+        // Gutters & Downspouts
+        y = drawSectionHeader(doc, "Gutters & Downspouts", y);
+        y = drawTwoColumnRow(doc, "Existing Gutters", attributes.Existing_Gutters, "Gutter Count", attributes.Gutter_Count, y);
+        y = drawTwoColumnRow(doc, "Gutter Condition", attributes.Gutter_Condition, "Gutter Material", attributes.Gutter_Material, y);
+        y = drawTwoColumnRow(doc, "Existing Downspouts", attributes.Existing_Downspouts, "Downspout Count", attributes.Downspout_Count, y);
+        y = drawTwoColumnRow(doc, "Downspout Condition", attributes.Downspout_Condition, "Downspout Material", attributes.Downspout_Material, y);
+
+        // Assessment Summary
+        y = drawSectionHeader(doc, "Assessment Summary", y);
+        y = drawSingleColumnRow(doc, "Recommended Remediation", attributes.Recommended_Remediation, y);
+        y = drawSingleColumnRow(doc, "Overall Assessment Comments", attributes.Overall_Comments, y);
+        y = drawSingleColumnRow(doc, "Other Issues", attributes.Other_Issues, y);
+
+        // General Photos
+        if (attachments.length > 0) {
+          y = drawSectionHeader(doc, "General Photos", y);
+          for (let i = 0; i < attachments.length; i++) {
+            const att = attachments[i];
+            const attUrl = `${layerUrl}/${objectId}/attachments/${att.id}?token=${token}`;
+            if (att.contentType === "image/jpeg" || att.contentType === "image/png") {
+              try {
+                const dataUrl = await loadImageWithOrientation(attUrl);
+                const imgWidth = 120, imgHeight = 90;
+                const x = (pageWidth - imgWidth) / 2;
+                y = checkPageBreak(doc, y, imgHeight + 10);
+                doc.addImage(
+                  dataUrl,
+                  att.contentType === "image/png" ? "PNG" : "JPEG",
+                  x, y, imgWidth, imgHeight
+                );
+                y += imgHeight + 10;
+                if (y > 250 && i < attachments.length - 1) {
+                  doc.addPage();
+                  ensurePageFont(doc);
+                  y = 20;
+                }
+              } catch (e) {
+                doc.setFontSize(10);
+                doc.setTextColor(220, 38, 38);
+                doc.text(cleanText(`(Could not embed image)`), 20, y);
+                y += 10;
+              }
+            }
+          }
+        }
+
+        // Defects
+        if (defects.length > 0) {
+          y = drawSectionHeader(doc, "Defects", y);
+          for (let i = 0; i < defects.length; i++) {
+            const defect = defects[i];
+            const defectType = defect.attributes.Defect_Type && defect.attributes.Defect_Type.toLowerCase() === "other"
+              ? fallbackNone(defect.attributes.Defect_Other)
+              : prettify(defect.attributes.Defect_Type);
+
+            const linesDefectType = doc.splitTextToSize(cleanText(defectType) || "N/A", 80 - 4);
+            const linesCriticalIssue = doc.splitTextToSize(cleanText(fallbackNone(defect.attributes.Critical_Defect)), 80 - 4);
+            const linesRemediation = doc.splitTextToSize(cleanText(fallbackNone(defect.attributes.Recommended_Remediation)), 170 - 4);
+
+            const heightDefectType = linesDefectType.length * 5.2 + 12;
+            const heightCriticalIssue = linesCriticalIssue.length * 5.2 + 12;
+            const heightRemediation = linesRemediation.length * 5.2 + 12;
+
+            const totalDefectHeight = Math.max(heightDefectType, heightCriticalIssue) + heightRemediation + 40;
+
+            y = checkPageBreak(doc, y, totalDefectHeight);
+
+            // Defect header
+            doc.setFontSize(11);
+            doc.setFont("NotoSans-Regular", "normal");
+            doc.setTextColor(0, 0, 0);
+            doc.text(cleanText(`Defect ${i + 1}`), 22, y + 7);
+            doc.setFont("NotoSans-Regular", "normal");
+            y += 10;
+
+            // Defect fields
+            y = drawTwoColumnRow(
+              doc,
+              "Defect Type",
+              defectType,
+              "Critical Issue",
+              fallbackNone(defect.attributes.Critical_Defect),
+              y
+            );
+            y = drawSingleColumnRow(
+              doc,
+              "Recommended Remediation",
+              fallbackNone(defect.attributes.Recommended_Remediation),
+              y
+            );
+
+            // Defect Photos
+            const defectId = defect.attributes.objectid;
+            const defectAtts = defectAttachmentsMap[defectId] || [];
+            if (defectAtts.length > 0) {
+              y = checkPageBreak(doc, y, 16 + 90 + 10);
+
+              doc.setFontSize(11);
+              doc.setFont("NotoSans-Regular", "normal");
+              doc.setTextColor(0, 0, 0);
+              doc.text(cleanText(`Defect ${i + 1} Photos`), 22, y + 7);
+              doc.setFont("NotoSans-Regular", "normal");
+              y += 10;
+
+              const firstAtt = defectAtts[0];
+              try {
+                const url = `${defectsTableUrl}/${defectId}/attachments/${firstAtt.id}?token=${token}`;
+                const dataUrl = await loadImageWithOrientation(url);
+                const imgWidth = 120, imgHeight = 90;
+                const x = (pageWidth - imgWidth) / 2;
+                y = checkPageBreak(doc, y, imgHeight + 10);
+                doc.addImage(
+                  dataUrl,
+                  firstAtt.contentType === "image/png" ? "PNG" : "JPEG",
+                  x, y, imgWidth, imgHeight
+                );
+                y += imgHeight + 10;
+              } catch (e) {
+                doc.setFontSize(10);
+                doc.setTextColor(220, 38, 38);
+                doc.text(cleanText(`(Could not embed defect image)`), 20, y);
+                y += 10;
+              }
+
+              for (let j = 1; j < defectAtts.length; j++) {
+                const att = defectAtts[j];
+                if (att.contentType === "image/jpeg" || att.contentType === "image/png") {
+                  try {
+                    const url = `${defectsTableUrl}/${defectId}/attachments/${att.id}?token=${token}`;
+                    const dataUrl = await loadImageWithOrientation(url);
+                    const imgWidth = 120, imgHeight = 90;
+                    const x = (pageWidth - imgWidth) / 2;
+                    y = checkPageBreak(doc, y, imgHeight + 10);
+                    doc.addImage(
+                      dataUrl,
+                      att.contentType === "image/png" ? "PNG" : "JPEG",
+                      x, y, imgWidth, imgHeight
+                    );
+                    y += imgHeight + 10;
+                  } catch (e) {
+                    doc.setFontSize(10);
+                    doc.setTextColor(220, 38, 38);
+                    doc.text(cleanText(`(Could not embed defect image)`), 20, y);
+                    y += 10;
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        // Save the PDF with a safe filename
+        const parkName = attributes.Park_Name || "UnknownPark";
+        const buildingName = attributes.Building_Name || "UnknownBuilding";
+        const fileName =
+          `roof-inspection-${cleanText(parkName).replace(/[^a-z0-9_-]/gi, "_").toLowerCase()}_${cleanText(buildingName).replace(/[^a-z0-9_-]/gi, "_").toLowerCase()}-${attributes.ObjectID}.pdf`;
+        doc.save(fileName);
+      }
+
+      async function autoExport() {
+        setLoading(true);
+        try {
+          const objectId = getObjectIdFromUrl();
+          if (!objectId) {
+            setLoading(false);
+            showError("No ObjectID provided in URL. Please use: ?objectid=123");
+            return;
+          }
+          showStatus("Authenticating...");
+          esriId.registerOAuthInfos([{ appId, portalUrl, popup: false }]);
+          const credential = await esriId.getCredential(portalUrl + "/sharing");
+
+          showStatus("Fetching building data...");
+          const feature = await fetchFeatureByObjectId(objectId);
+
+          // Normalize strings in-place
+          for (const k of Object.keys(feature.attributes)) {
+            if (typeof feature.attributes[k] === "string") {
+              feature.attributes[k] = feature.attributes[k]
+                .normalize("NFC")
+                .replace(/\u00A0/g, " ")
+                .replace(/[\u200B-\u200D\uFEFF]/g, "");
+            }
+          }
+
+          showStatus("Fetching attachments...");
+          const attachments = await fetchAttachments(objectId, credential.token, layerUrl);
+
+          showStatus("Fetching related defects...");
+          const globalId = feature.attributes.globalid;
+          const defects = await fetchDefectsForBuilding(globalId);
+
+          showStatus("Fetching attachments for defects...");
+          const defectAttachmentsMap = {};
+          for (const defect of defects) {
+            const defectObjectId = defect.attributes.objectid;
+            if (!defectObjectId) continue;
+            const attachmentsForDefect = await fetchDefectAttachments(defectObjectId, credential.token, defectsTableUrl);
+            defectAttachmentsMap[defectObjectId] = attachmentsForDefect;
+          }
+
+          showStatus("Generating PDF...");
+          await createPDF(feature, attachments, credential.token, objectId, defects, defectAttachmentsMap);
+          setLoading(false);
+          showStatus("✅ PDF generated and downloaded.");
+        } catch (err) {
+          setLoading(false);
+          showError("❌ " + (err.message || err));
+          console.error("Auto-export error:", err);
+        }
+      }
+
+      // Optional: quick debug to confirm font is present before running export
+      (function debugFont() {
+        const { jsPDF } = window.jspdf || {};
+        if (!jsPDF) return;
+        const t = new jsPDF();
+        console.log("[PDF DEBUG] Font list:", t.getFontList && t.getFontList());
+      })();
+
+      autoExport();
+    });
+  </script>
+</body>
 </html>
