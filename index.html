@@ -1,53 +1,2100 @@
-<!doctype html>
+```html
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
-    <title>Load a basic web scene | Sample | ArcGIS Maps SDK for JavaScript</title>
+<head>
+    <meta charset="UTF-8">
 
-    <!-- Load the ArcGIS Maps SDK for JavaScript from CDN -->
-    <script type="module" src="https://js.arcgis.com/5.1/"></script>
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
 
+    <title>Honolulu TheBus Tracker</title>
+
+    <!-- =========================================================
+         ARCGIS MAPS SDK FOR JAVASCRIPT
+         ========================================================= -->
+    <link
+        rel="stylesheet"
+        href="https://js.arcgis.com/4.34/esri/themes/light/main.css"
+    />
+
+    <script src="https://js.arcgis.com/4.34/"></script>
+
+    <!-- =========================================================
+         APPLICATION STYLES
+         ========================================================= -->
     <style>
-      html,
-      body {
-        height: 100%;
-        margin: 0;
-      }
-      arcgis-scene {
-        --arcgis-layout-overlay-space-top: 40px;
-      }
 
-      #titleDiv {
-        background-color: lightgray;
-        position: absolute;
-        font-size: 20pt;
-        font-weight: 800;
-        width: 100%;
-        height: 40px;
-        text-align: center;
-        opacity: 0.75;
-      }
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+            font-family:
+                Arial,
+                Helvetica,
+                sans-serif;
+            overflow: hidden;
+        }
+
+        /* =====================================================
+           MAIN APPLICATION
+           ===================================================== */
+
+        #app {
+            height: 100%;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* =====================================================
+           HEADER
+           ===================================================== */
+
+        #header {
+            height: 64px;
+            background: #12395b;
+            color: white;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            z-index: 10;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+        }
+
+        #header h1 {
+            margin: 0;
+            font-size: 22px;
+            font-weight: 600;
+        }
+
+        #header .subtitle {
+            margin-left: 15px;
+            font-size: 13px;
+            opacity: 0.8;
+        }
+
+        /* =====================================================
+           MAIN CONTENT
+           ===================================================== */
+
+        #content {
+            flex: 1;
+            display: flex;
+            min-height: 0;
+        }
+
+        /* =====================================================
+           SIDEBAR
+           ===================================================== */
+
+        #sidebar {
+            width: 390px;
+            background: #ffffff;
+            border-right: 1px solid #ccc;
+            display: flex;
+            flex-direction: column;
+            z-index: 5;
+        }
+
+        #sidebar-header {
+            padding: 16px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        #sidebar-header h2 {
+            margin: 0 0 12px 0;
+            font-size: 18px;
+            color: #333;
+        }
+
+        /* =====================================================
+           SEARCH
+           ===================================================== */
+
+        .search-row {
+            display: flex;
+            gap: 7px;
+            margin-bottom: 10px;
+        }
+
+        .search-row input {
+            flex: 1;
+            height: 38px;
+            border: 1px solid #aaa;
+            border-radius: 4px;
+            padding: 0 10px;
+            font-size: 14px;
+        }
+
+        button {
+            border: none;
+            border-radius: 4px;
+            background: #1976d2;
+            color: white;
+            padding: 0 14px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        button:hover {
+            background: #135fa7;
+        }
+
+        button.secondary {
+            background: #666;
+        }
+
+        button.secondary:hover {
+            background: #4f4f4f;
+        }
+
+        button.success {
+            background: #2e7d32;
+        }
+
+        /* =====================================================
+           STATUS
+           ===================================================== */
+
+        #status {
+            padding: 10px 16px;
+            background: #f5f5f5;
+            border-bottom: 1px solid #ddd;
+            font-size: 12px;
+            color: #555;
+        }
+
+        #status.error {
+            background: #ffebee;
+            color: #b71c1c;
+        }
+
+        #status.success {
+            background: #e8f5e9;
+            color: #1b5e20;
+        }
+
+        /* =====================================================
+           SELECTED STOP
+           ===================================================== */
+
+        #stop-info {
+            display: none;
+            padding: 16px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        #stop-name {
+            font-size: 17px;
+            font-weight: bold;
+            color: #12395b;
+            margin-bottom: 4px;
+        }
+
+        #stop-number {
+            font-size: 12px;
+            color: #777;
+            margin-bottom: 10px;
+        }
+
+        /* =====================================================
+           ARRIVALS
+           ===================================================== */
+
+        #arrivals-container {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        #arrivals-title {
+            padding: 12px 16px;
+            font-weight: bold;
+            border-bottom: 1px solid #ddd;
+            background: #fafafa;
+        }
+
+        .arrival {
+            padding: 13px 16px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+        }
+
+        .arrival:hover {
+            background: #f5f9fc;
+        }
+
+        .arrival-route {
+            display: inline-block;
+            min-width: 45px;
+            padding: 4px 7px;
+            background: #12395b;
+            color: white;
+            border-radius: 4px;
+            font-weight: bold;
+            text-align: center;
+            margin-right: 7px;
+        }
+
+        .arrival-headsign {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .arrival-time {
+            margin-top: 7px;
+            font-size: 15px;
+            font-weight: bold;
+        }
+
+        .arrival-meta {
+            margin-top: 5px;
+            font-size: 11px;
+            color: #777;
+        }
+
+        .estimated {
+            color: #2e7d32;
+            font-weight: bold;
+        }
+
+        .scheduled {
+            color: #666;
+        }
+
+        .canceled {
+            color: #c62828;
+            font-weight: bold;
+        }
+
+        /* =====================================================
+           FOOTER
+           ===================================================== */
+
+        #sidebar-footer {
+            padding: 10px 16px;
+            border-top: 1px solid #ddd;
+            background: #fafafa;
+            font-size: 11px;
+            color: #777;
+        }
+
+        /* =====================================================
+           MAP
+           ===================================================== */
+
+        #map {
+            flex: 1;
+            min-width: 0;
+            position: relative;
+        }
+
+        /* =====================================================
+           MAP OVERLAY
+           ===================================================== */
+
+        #map-controls {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            z-index: 3;
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+        }
+
+        #map-controls button {
+            height: 38px;
+            background: white;
+            color: #333;
+            border: 1px solid #aaa;
+            box-shadow: 0 1px 5px rgba(0, 0, 0, 0.25);
+        }
+
+        #map-controls button:hover {
+            background: #f0f0f0;
+        }
+
+        /* =====================================================
+           ROUTE SEARCH
+           ===================================================== */
+
+        #route-section {
+            padding: 12px 16px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        #route-section h3 {
+            margin: 0 0 8px 0;
+            font-size: 14px;
+        }
+
+        /* =====================================================
+           LOADING
+           ===================================================== */
+
+        .loading {
+            padding: 25px;
+            text-align: center;
+            color: #777;
+        }
+
+        /* =====================================================
+           RESPONSIVE
+           ===================================================== */
+
+        @media (max-width: 800px) {
+
+            #sidebar {
+                width: 320px;
+            }
+
+            #header .subtitle {
+                display: none;
+            }
+        }
+
+        @media (max-width: 600px) {
+
+            #content {
+                flex-direction: column;
+            }
+
+            #sidebar {
+                width: 100%;
+                height: 48%;
+                border-right: none;
+                border-bottom: 1px solid #ccc;
+            }
+
+            #map {
+                height: 52%;
+            }
+
+            #header {
+                height: 54px;
+            }
+
+            #header h1 {
+                font-size: 18px;
+            }
+        }
+
     </style>
-  </head>
+</head>
 
-  <body>
-    <arcgis-scene item-id="ef0c40869c3642feaeacc71f45ec6ad3" popupDisabled="true">
-      <arcgis-zoom slot="top-left"></arcgis-zoom>
-      <arcgis-navigation-toggle slot="top-left"></arcgis-navigation-toggle>
-      <arcgis-compass slot="top-left"></arcgis-compass>
-      <div id="titleDiv"></div>
-    </arcgis-scene>
-    <script type="module">
-      // Get references to DOM elements
-      const viewElement = document.querySelector("arcgis-scene");
-      const titleDiv = document.getElementById("titleDiv");
+<body>
 
-      // Wait for the view to fully initialize
-      await viewElement.viewOnReady();
+<div id="app">
 
-      // Display the web scene's title on the screen
-      titleDiv.textContent = viewElement.map.portalItem.title;
-    </script>
-  </body>
+    <!-- =========================================================
+         HEADER
+         ========================================================= -->
+
+    <header id="header">
+
+        <h1>
+            🚌 Honolulu TheBus Tracker
+        </h1>
+
+        <span class="subtitle">
+            Real-time Oahu transit information
+        </span>
+
+    </header>
+
+
+    <!-- =========================================================
+         MAIN CONTENT
+         ========================================================= -->
+
+    <div id="content">
+
+        <!-- =====================================================
+             SIDEBAR
+             ===================================================== -->
+
+        <aside id="sidebar">
+
+            <div id="sidebar-header">
+
+                <h2>
+                    Find a Bus Stop
+                </h2>
+
+                <div class="search-row">
+
+                    <input
+                        id="stop-input"
+                        type="text"
+                        placeholder="Enter stop number..."
+                        autocomplete="off"
+                    >
+
+                    <button
+                        id="stop-search-button"
+                    >
+                        Search
+                    </button>
+
+                </div>
+
+                <div class="search-row">
+
+                    <input
+                        id="route-input"
+                        type="text"
+                        placeholder="Enter route number..."
+                        autocomplete="off"
+                    >
+
+                    <button
+                        id="route-search-button"
+                    >
+                        Route
+                    </button>
+
+                </div>
+
+            </div>
+
+
+            <!-- =================================================
+                 STATUS
+                 ================================================= -->
+
+            <div id="status">
+                Enter a TheBus stop number to begin.
+            </div>
+
+
+            <!-- =================================================
+                 STOP INFORMATION
+                 ================================================= -->
+
+            <div id="stop-info">
+
+                <div id="stop-name">
+                    Bus Stop
+                </div>
+
+                <div id="stop-number">
+                    Stop #
+                </div>
+
+                <button
+                    id="refresh-button"
+                    class="success"
+                >
+                    Refresh Arrivals
+                </button>
+
+            </div>
+
+
+            <!-- =================================================
+                 ARRIVALS
+                 ================================================= -->
+
+            <div id="arrivals-container">
+
+                <div id="arrivals-title">
+                    Upcoming Arrivals
+                </div>
+
+                <div id="arrivals-list">
+
+                    <div class="loading">
+                        Search for a stop to view arrivals.
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- =================================================
+                 FOOTER
+                 ================================================= -->
+
+            <div id="sidebar-footer">
+
+                Data provided by Oahu Transit Services /
+                TheBus API.
+
+            </div>
+
+        </aside>
+
+
+        <!-- =====================================================
+             MAP
+             ===================================================== -->
+
+        <div id="map">
+
+            <div id="map-controls">
+
+                <button id="my-location-button">
+                    📍 My Location
+                </button>
+
+                <button id="full-oahu-button">
+                    Oahu
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- =============================================================
+     APPLICATION JAVASCRIPT
+     ============================================================= -->
+
+<script>
+
+    /*
+     * ==========================================================
+     * THEBUS CONFIGURATION
+     * ==========================================================
+     *
+     * IMPORTANT:
+     *
+     * Replace YOUR_THEBUS_API_KEY with your actual AppID.
+     *
+     * For a production application, DO NOT expose your API key
+     * in client-side JavaScript. Use a server-side proxy instead.
+     *
+     * ==========================================================
+     */
+
+    const THEBUS_API_KEY = "YOUR_THEBUS_API_KEY";
+
+
+    /*
+     * TheBus API endpoints documented by Oahu Transit Services.
+     */
+
+    const THEBUS_API = {
+
+        arrivals:
+            "http://api.thebus.org/arrivalsJSON/",
+
+        vehicle:
+            "http://api.thebus.org/vehicleJSON/",
+
+        route:
+            "http://api.thebus.org/routeJSON/"
+
+    };
+
+
+    /*
+     * ==========================================================
+     * APPLICATION VARIABLES
+     * ==========================================================
+     */
+
+    let map;
+
+    let graphicsLayer;
+
+    let stopGraphic = null;
+
+    let busGraphics = [];
+
+    let currentStop = null;
+
+    let refreshTimer = null;
+
+
+    /*
+     * ==========================================================
+     * DOM REFERENCES
+     * ==========================================================
+     */
+
+    const stopInput =
+        document.getElementById("stop-input");
+
+    const routeInput =
+        document.getElementById("route-input");
+
+    const stopSearchButton =
+        document.getElementById("stop-search-button");
+
+    const routeSearchButton =
+        document.getElementById("route-search-button");
+
+    const refreshButton =
+        document.getElementById("refresh-button");
+
+    const myLocationButton =
+        document.getElementById("my-location-button");
+
+    const fullOahuButton =
+        document.getElementById("full-oahu-button");
+
+    const statusElement =
+        document.getElementById("status");
+
+    const stopInfo =
+        document.getElementById("stop-info");
+
+    const stopName =
+        document.getElementById("stop-name");
+
+    const stopNumber =
+        document.getElementById("stop-number");
+
+    const arrivalsList =
+        document.getElementById("arrivals-list");
+
+
+    /*
+     * ==========================================================
+     * LOAD ARCGIS MODULES
+     * ==========================================================
+     */
+
+    require(
+        [
+            "esri/Map",
+            "esri/views/MapView",
+            "esri/layers/GraphicsLayer",
+            "esri/Graphic",
+            "esri/geometry/Point",
+            "esri/symbols/SimpleMarkerSymbol",
+            "esri/geometry/Extent"
+        ],
+
+        function(
+            Map,
+            MapView,
+            GraphicsLayer,
+            Graphic,
+            Point,
+            SimpleMarkerSymbol,
+            Extent
+        ) {
+
+
+            /*
+             * ==================================================
+             * CREATE MAP
+             * ==================================================
+             */
+
+            const theMap = new Map({
+
+                basemap: "streets-navigation-vector"
+
+            });
+
+
+            /*
+             * ==================================================
+             * CREATE MAP VIEW
+             * ==================================================
+             */
+
+            map = new MapView({
+
+                container: "map",
+
+                map: theMap,
+
+                center: [
+                    -157.8583,
+                    21.3069
+                ],
+
+                zoom: 11
+
+            });
+
+
+            /*
+             * ==================================================
+             * GRAPHICS LAYER
+             * ==================================================
+             */
+
+            graphicsLayer =
+                new GraphicsLayer({
+
+                    title:
+                        "TheBus Real-Time Data"
+
+                });
+
+
+            theMap.add(
+                graphicsLayer
+            );
+
+
+            /*
+             * ==================================================
+             * EVENTS
+             * ==================================================
+             */
+
+            stopSearchButton.addEventListener(
+                "click",
+                searchStop
+            );
+
+
+            routeSearchButton.addEventListener(
+                "click",
+                searchRoute
+            );
+
+
+            refreshButton.addEventListener(
+                "click",
+                function() {
+
+                    if (currentStop) {
+
+                        loadArrivals(
+                            currentStop
+                        );
+
+                    }
+
+                }
+            );
+
+
+            myLocationButton.addEventListener(
+                "click",
+                locateUser
+            );
+
+
+            fullOahuButton.addEventListener(
+                "click",
+                function() {
+
+                    map.goTo({
+
+                        center: [
+                            -157.8583,
+                            21.3069
+                        ],
+
+                        zoom: 10
+
+                    });
+
+                }
+            );
+
+
+            /*
+             * ENTER KEY SEARCH
+             */
+
+            stopInput.addEventListener(
+                "keydown",
+                function(event) {
+
+                    if (event.key === "Enter") {
+
+                        searchStop();
+
+                    }
+
+                }
+            );
+
+
+            routeInput.addEventListener(
+                "keydown",
+                function(event) {
+
+                    if (event.key === "Enter") {
+
+                        searchRoute();
+
+                    }
+
+                }
+            );
+
+
+            /*
+             * INITIAL MAP MESSAGE
+             */
+
+            setStatus(
+                "Enter a TheBus stop number to begin."
+            );
+
+
+            /*
+             * ==================================================
+             * SEARCH STOP
+             * ==================================================
+             */
+
+            async function searchStop() {
+
+                const stop =
+                    stopInput.value.trim();
+
+
+                if (!stop) {
+
+                    setStatus(
+                        "Please enter a stop number.",
+                        true
+                    );
+
+                    return;
+
+                }
+
+
+                if (!/^\d+$/.test(stop)) {
+
+                    setStatus(
+                        "Stop numbers should contain numbers only.",
+                        true
+                    );
+
+                    return;
+
+                }
+
+
+                currentStop = stop;
+
+
+                stopInfo.style.display =
+                    "block";
+
+
+                stopName.textContent =
+                    "TheBus Stop " + stop;
+
+
+                stopNumber.textContent =
+                    "Stop #" + stop;
+
+
+                await loadArrivals(stop);
+
+            }
+
+
+            /*
+             * ==================================================
+             * LOAD ARRIVALS
+             * ==================================================
+             */
+
+            async function loadArrivals(stop) {
+
+                setStatus(
+                    "Loading real-time arrivals..."
+                );
+
+
+                arrivalsList.innerHTML = `
+                    <div class="loading">
+                        Loading arrivals...
+                    </div>
+                `;
+
+
+                clearBusGraphics();
+
+
+                /*
+                 * Build API URL.
+                 */
+
+                const url =
+                    THEBUS_API.arrivals +
+                    "?key=" +
+                    encodeURIComponent(
+                        THEBUS_API_KEY
+                    ) +
+                    "&stop=" +
+                    encodeURIComponent(stop);
+
+
+                try {
+
+                    const response =
+                        await fetch(url);
+
+
+                    if (!response.ok) {
+
+                        throw new Error(
+                            "HTTP " +
+                            response.status
+                        );
+
+                    }
+
+
+                    const data =
+                        await response.json();
+
+
+                    console.log(
+                        "TheBus arrivals:",
+                        data
+                    );
+
+
+                    /*
+                     * API ERROR
+                     */
+
+                    if (data.errorMessage) {
+
+                        throw new Error(
+                            data.errorMessage
+                        );
+
+                    }
+
+
+                    /*
+                     * Update stop information.
+                     */
+
+                    stopName.textContent =
+                        "TheBus Stop " +
+                        stop;
+
+
+                    stopNumber.textContent =
+                        "Stop #" +
+                        stop;
+
+
+                    /*
+                     * Display arrivals.
+                     */
+
+                    displayArrivals(
+                        data
+                    );
+
+
+                    /*
+                     * Plot bus locations.
+                     */
+
+                    plotArrivalBuses(
+                        data
+                    );
+
+
+                    /*
+                     * Status.
+                     */
+
+                    setStatus(
+                        "Last updated: " +
+                        formatTimestamp(
+                            data.timestamp
+                        ),
+                        false,
+                        true
+                    );
+
+
+                    /*
+                     * Automatically refresh every 30 seconds.
+                     */
+
+                    startAutoRefresh();
+
+                }
+
+                catch (error) {
+
+                    console.error(
+                        error
+                    );
+
+
+                    arrivalsList.innerHTML = `
+                        <div class="loading">
+                            Unable to retrieve arrival information.
+                            <br><br>
+                            ${escapeHtml(error.message)}
+                        </div>
+                    `;
+
+
+                    setStatus(
+                        "Unable to retrieve TheBus data.",
+                        true
+                    );
+
+                }
+
+            }
+
+
+            /*
+             * ==================================================
+             * DISPLAY ARRIVALS
+             * ==================================================
+             */
+
+            function displayArrivals(data) {
+
+                arrivalsList.innerHTML = "";
+
+
+                const arrivals =
+                    Array.isArray(data.arrivals)
+                        ? data.arrivals
+                        : [];
+
+
+                if (arrivals.length === 0) {
+
+                    arrivalsList.innerHTML = `
+                        <div class="loading">
+                            No upcoming arrivals found.
+                        </div>
+                    `;
+
+                    return;
+
+                }
+
+
+                arrivals.forEach(
+                    function(arrival) {
+
+                        const div =
+                            document.createElement(
+                                "div"
+                            );
+
+
+                        div.className =
+                            "arrival";
+
+
+                        /*
+                         * Estimated / scheduled
+                         */
+
+                        const isEstimated =
+                            String(
+                                arrival.estimated
+                            ) === "1";
+
+
+                        const canceled =
+                            String(
+                                arrival.canceled
+                            ) === "1";
+
+
+                        let statusText =
+                            isEstimated
+                                ? "Estimated"
+                                : "Scheduled";
+
+
+                        let statusClass =
+                            isEstimated
+                                ? "estimated"
+                                : "scheduled";
+
+
+                        if (canceled) {
+
+                            statusText =
+                                "Canceled";
+
+                            statusClass =
+                                "canceled";
+
+                        }
+
+
+                        /*
+                         * Vehicle
+                         */
+
+                        const vehicle =
+                            arrival.vehicle &&
+                            arrival.vehicle !== "???"
+                                ? arrival.vehicle
+                                : "Scheduled";
+
+
+                        div.innerHTML = `
+
+                            <div>
+
+                                <span
+                                    class="arrival-route"
+                                >
+                                    ${escapeHtml(
+                                        arrival.route ||
+                                        "?"
+                                    )}
+                                </span>
+
+                                <span
+                                    class="arrival-headsign"
+                                >
+                                    ${escapeHtml(
+                                        arrival.headsign ||
+                                        "Unknown destination"
+                                    )}
+                                </span>
+
+                            </div>
+
+                            <div
+                                class="arrival-time"
+                            >
+                                ${escapeHtml(
+                                    arrival.stopTime ||
+                                    "Unknown"
+                                )}
+                            </div>
+
+                            <div
+                                class="arrival-meta"
+                            >
+                                ${escapeHtml(
+                                    arrival.direction ||
+                                    ""
+                                )}
+                                &nbsp; • &nbsp;
+
+                                <span
+                                    class="${statusClass}"
+                                >
+                                    ${statusText}
+                                </span>
+
+                                &nbsp; • &nbsp;
+
+                                Bus:
+                                ${escapeHtml(vehicle)}
+
+                            </div>
+
+                        `;
+
+
+                        /*
+                         * Clicking an arrival with a
+                         * vehicle number will query
+                         * the Vehicle API.
+                         */
+
+                        if (
+                            vehicle !== "Scheduled" &&
+                            vehicle !== "???"
+                        ) {
+
+                            div.addEventListener(
+                                "click",
+                                function() {
+
+                                    loadVehicle(
+                                        vehicle
+                                    );
+
+                                }
+                            );
+
+                        }
+
+
+                        arrivalsList.appendChild(
+                            div
+                        );
+
+                    }
+                );
+
+            }
+
+
+            /*
+             * ==================================================
+             * PLOT BUS LOCATIONS
+             * ==================================================
+             */
+
+            function plotArrivalBuses(data) {
+
+                clearBusGraphics();
+
+
+                const arrivals =
+                    Array.isArray(data.arrivals)
+                        ? data.arrivals
+                        : [];
+
+
+                arrivals.forEach(
+                    function(arrival) {
+
+                        const lat =
+                            parseFloat(
+                                arrival.latitude
+                            );
+
+                        const lon =
+                            parseFloat(
+                                arrival.longitude
+                            );
+
+
+                        /*
+                         * The API uses 0/0 when a
+                         * bus location is unavailable.
+                         */
+
+                        if (
+                            !Number.isFinite(lat) ||
+                            !Number.isFinite(lon) ||
+                            lat === 0 ||
+                            lon === 0
+                        ) {
+
+                            return;
+
+                        }
+
+
+                        const point =
+                            new Point({
+
+                                longitude: lon,
+
+                                latitude: lat
+
+                            });
+
+
+                        const symbol =
+                            new SimpleMarkerSymbol({
+
+                                style: "circle",
+
+                                size: 14,
+
+                                color: "#e53935",
+
+                                outline: {
+
+                                    color: "#ffffff",
+
+                                    width: 2
+
+                                }
+
+                            });
+
+
+                        const graphic =
+                            new Graphic({
+
+                                geometry:
+                                    point,
+
+                                symbol:
+                                    symbol,
+
+                                attributes: {
+
+                                    route:
+                                        arrival.route,
+
+                                    headsign:
+                                        arrival.headsign,
+
+                                    vehicle:
+                                        arrival.vehicle,
+
+                                    direction:
+                                        arrival.direction,
+
+                                    stopTime:
+                                        arrival.stopTime
+
+                                },
+
+                                popupTemplate: {
+
+                                    title:
+                                        "🚌 Route {route}",
+
+                                    content: [
+
+                                        {
+
+                                            type:
+                                                "fields",
+
+                                            fieldInfos: [
+
+                                                {
+
+                                                    fieldName:
+                                                        "vehicle",
+
+                                                    label:
+                                                        "Vehicle"
+
+                                                },
+
+                                                {
+
+                                                    fieldName:
+                                                        "headsign",
+
+                                                    label:
+                                                        "Destination"
+
+                                                },
+
+                                                {
+
+                                                    fieldName:
+                                                        "direction",
+
+                                                    label:
+                                                        "Direction"
+
+                                                },
+
+                                                {
+
+                                                    fieldName:
+                                                        "stopTime",
+
+                                                    label:
+                                                        "Stop Time"
+
+                                                }
+
+                                            ]
+
+                                        }
+
+                                    ]
+
+                                }
+
+                            });
+
+
+                        graphicsLayer.add(
+                            graphic
+                        );
+
+
+                        busGraphics.push(
+                            graphic
+                        );
+
+                    }
+                );
+
+
+                /*
+                 * Zoom to buses if any exist.
+                 */
+
+                if (
+                    busGraphics.length > 0
+                ) {
+
+                    map.goTo(
+                        busGraphics,
+                        {
+
+                            duration: 800
+
+                        }
+                    );
+
+                }
+
+            }
+
+
+            /*
+             * ==================================================
+             * VEHICLE LOOKUP
+             * ==================================================
+             */
+
+            async function loadVehicle(
+                vehicleNumber
+            ) {
+
+                setStatus(
+                    "Loading vehicle " +
+                    vehicleNumber +
+                    "..."
+                );
+
+
+                const url =
+                    THEBUS_API.vehicle +
+                    "?key=" +
+                    encodeURIComponent(
+                        THEBUS_API_KEY
+                    ) +
+                    "&num=" +
+                    encodeURIComponent(
+                        vehicleNumber
+                    );
+
+
+                try {
+
+                    const response =
+                        await fetch(url);
+
+
+                    if (!response.ok) {
+
+                        throw new Error(
+                            "HTTP " +
+                            response.status
+                        );
+
+                    }
+
+
+                    const data =
+                        await response.json();
+
+
+                    console.log(
+                        "Vehicle:",
+                        data
+                    );
+
+
+                    if (
+                        data.errorMessage
+                    ) {
+
+                        throw new Error(
+                            data.errorMessage
+                        );
+
+                    }
+
+
+                    const vehicles =
+                        Array.isArray(
+                            data.vehicle
+                        )
+                            ? data.vehicle
+                            : [];
+
+
+                    if (
+                        vehicles.length === 0
+                    ) {
+
+                        setStatus(
+                            "No information available for vehicle " +
+                            vehicleNumber,
+                            true
+                        );
+
+                        return;
+
+                    }
+
+
+                    const vehicle =
+                        vehicles[0];
+
+
+                    const lat =
+                        parseFloat(
+                            vehicle.latitude
+                        );
+
+                    const lon =
+                        parseFloat(
+                            vehicle.longitude
+                        );
+
+
+                    if (
+                        Number.isFinite(lat) &&
+                        Number.isFinite(lon)
+                    ) {
+
+                        map.goTo({
+
+                            center: [
+                                lon,
+                                lat
+                            ],
+
+                            zoom: 16
+
+                        });
+
+                    }
+
+
+                    setStatus(
+                        "Vehicle " +
+                        vehicleNumber +
+                        " • Route " +
+                        (
+                            vehicle.route_short_name ||
+                            ""
+                        ) +
+                        " • " +
+                        (
+                            vehicle.headsign ||
+                            ""
+                        ),
+                        false,
+                        true
+                    );
+
+                }
+
+                catch (error) {
+
+                    console.error(
+                        error
+                    );
+
+
+                    setStatus(
+                        "Vehicle lookup failed: " +
+                        error.message,
+                        true
+                    );
+
+                }
+
+            }
+
+
+            /*
+             * ==================================================
+             * ROUTE SEARCH
+             * ==================================================
+             */
+
+            async function searchRoute() {
+
+                const route =
+                    routeInput.value.trim();
+
+
+                if (!route) {
+
+                    setStatus(
+                        "Please enter a route number.",
+                        true
+                    );
+
+                    return;
+
+                }
+
+
+                setStatus(
+                    "Loading route " +
+                    route +
+                    "..."
+                );
+
+
+                const url =
+                    THEBUS_API.route +
+                    "?key=" +
+                    encodeURIComponent(
+                        THEBUS_API_KEY
+                    ) +
+                    "&route=" +
+                    encodeURIComponent(
+                        route
+                    );
+
+
+                try {
+
+                    const response =
+                        await fetch(url);
+
+
+                    if (!response.ok) {
+
+                        throw new Error(
+                            "HTTP " +
+                            response.status
+                        );
+
+                    }
+
+
+                    const data =
+                        await response.json();
+
+
+                    console.log(
+                        "Route:",
+                        data
+                    );
+
+
+                    if (
+                        data.errorMessage
+                    ) {
+
+                        throw new Error(
+                            data.errorMessage
+                        );
+
+                    }
+
+
+                    /*
+                     * Display route information
+                     * in the arrivals panel.
+                     */
+
+                    arrivalsList.innerHTML = "";
+
+
+                    const title =
+                        document.createElement(
+                            "div"
+                        );
+
+
+                    title.className =
+                        "arrival";
+
+
+                    title.innerHTML = `
+
+                        <strong>
+                            Route ${escapeHtml(
+                                data.routeName ||
+                                route
+                            )}
+                        </strong>
+
+                        <br><br>
+
+                        Route ID:
+                        ${escapeHtml(
+                            data.routeID ||
+                            "Unknown"
+                        )}
+
+                    `;
+
+
+                    arrivalsList.appendChild(
+                        title
+                    );
+
+
+                    const routes =
+                        Array.isArray(
+                            data.route
+                        )
+                            ? data.route
+                            : [];
+
+
+                    routes.forEach(
+                        function(routeInfo) {
+
+                            const div =
+                                document.createElement(
+                                    "div"
+                                );
+
+
+                            div.className =
+                                "arrival";
+
+
+                            div.innerHTML = `
+
+                                <div>
+                                    <strong>
+                                        Route
+                                        ${escapeHtml(
+                                            routeInfo.routeNum ||
+                                            ""
+                                        )}
+                                    </strong>
+                                </div>
+
+                                <div
+                                    class="arrival-meta"
+                                >
+
+                                    Shape:
+                                    ${escapeHtml(
+                                        routeInfo.shapeID ||
+                                        ""
+                                    )}
+
+                                    <br><br>
+
+                                    From:
+                                    ${escapeHtml(
+                                        routeInfo.firstStop ||
+                                        ""
+                                    )}
+
+                                    <br><br>
+
+                                    Destination:
+                                    ${escapeHtml(
+                                        routeInfo.headsign ||
+                                        ""
+                                    )}
+
+                                </div>
+
+                            `;
+
+
+                            arrivalsList.appendChild(
+                                div
+                            );
+
+                        }
+                    );
+
+
+                    setStatus(
+                        "Route " +
+                        route +
+                        " loaded.",
+                        false,
+                        true
+                    );
+
+                }
+
+                catch (error) {
+
+                    console.error(
+                        error
+                    );
+
+
+                    setStatus(
+                        "Unable to load route: " +
+                        error.message,
+                        true
+                    );
+
+                }
+
+            }
+
+
+            /*
+             * ==================================================
+             * USER LOCATION
+             * ==================================================
+             */
+
+            function locateUser() {
+
+                if (
+                    !navigator.geolocation
+                ) {
+
+                    setStatus(
+                        "Geolocation is not supported by this browser.",
+                        true
+                    );
+
+                    return;
+
+                }
+
+
+                setStatus(
+                    "Finding your location..."
+                );
+
+
+                navigator.geolocation.getCurrentPosition(
+
+                    function(position) {
+
+                        const lon =
+                            position.coords.longitude;
+
+                        const lat =
+                            position.coords.latitude;
+
+
+                        map.goTo({
+
+                            center: [
+                                lon,
+                                lat
+                            ],
+
+                            zoom: 16
+
+                        });
+
+
+                        setStatus(
+                            "Your location is displayed on the map.",
+                            false,
+                            true
+                        );
+
+                    },
+
+                    function(error) {
+
+                        setStatus(
+                            "Unable to determine your location: " +
+                            error.message,
+                            true
+                        );
+
+                    }
+
+                );
+
+            }
+
+
+            /*
+             * ==================================================
+             * AUTO REFRESH
+             * ==================================================
+             */
+
+            function startAutoRefresh() {
+
+                stopAutoRefresh();
+
+
+                refreshTimer =
+                    setInterval(
+                        function() {
+
+                            if (
+                                currentStop
+                            ) {
+
+                                loadArrivals(
+                                    currentStop
+                                );
+
+                            }
+
+                        },
+
+                        30000
+                    );
+
+            }
+
+
+            function stopAutoRefresh() {
+
+                if (
+                    refreshTimer
+                ) {
+
+                    clearInterval(
+                        refreshTimer
+                    );
+
+                    refreshTimer =
+                        null;
+
+                }
+
+            }
+
+
+            /*
+             * ==================================================
+             * CLEAR BUS GRAPHICS
+             * ==================================================
+             */
+
+            function clearBusGraphics() {
+
+                busGraphics.forEach(
+                    function(graphic) {
+
+                        graphicsLayer.remove(
+                            graphic
+                        );
+
+                    }
+                );
+
+
+                busGraphics = [];
+
+            }
+
+
+            /*
+             * ==================================================
+             * STATUS MESSAGE
+             * ==================================================
+             */
+
+            function setStatus(
+                message,
+                isError = false,
+                isSuccess = false
+            ) {
+
+                statusElement.textContent =
+                    message;
+
+
+                statusElement.className =
+                    "";
+
+
+                if (isError) {
+
+                    statusElement.classList.add(
+                        "error"
+                    );
+
+                }
+                else if (isSuccess) {
+
+                    statusElement.classList.add(
+                        "success"
+                    );
+
+                }
+
+            }
+
+
+            /*
+             * ==================================================
+             * FORMAT TIMESTAMP
+             * ==================================================
+             */
+
+            function formatTimestamp(
+                timestamp
+            ) {
+
+                if (!timestamp) {
+
+                    return "Unknown";
+
+                }
+
+                return timestamp;
+
+            }
+
+
+            /*
+             * ==================================================
+             * HTML ESCAPE
+             * ==================================================
+             */
+
+            function escapeHtml(
+                value
+            ) {
+
+                if (
+                    value === null ||
+                    value === undefined
+                ) {
+
+                    return "";
+
+                }
+
+
+                return String(value)
+
+                    .replace(
+                        /&/g,
+                        "&amp;"
+                    )
+
+                    .replace(
+                        /</g,
+                        "&lt;"
+                    )
+
+                    .replace(
+                        />/g,
+                        "&gt;"
+                    )
+
+                    .replace(
+                        /"/g,
+                        "&quot;"
+                    )
+
+                    .replace(
+                        /'/g,
+                        "&#039;"
+                    );
+
+            }
+
+        }
+
+    );
+
+</script>
+
+</body>
 </html>
+```
